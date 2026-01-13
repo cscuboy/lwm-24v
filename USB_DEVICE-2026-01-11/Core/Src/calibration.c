@@ -2,107 +2,84 @@
 #include <string.h>
 #include <math.h>
 #include <stdbool.h>
-#include "Modbus_index.h"
-#include "Modbus_Param.h"
+#include "calibration.h"
 
-// 数据类型定义
-//typedef float FLOAT;
-
-// 校准点结构
-typedef struct {
-    FLOAT filter_value;      // 仪表测量值（原始滤波值orlv）
-    FLOAT *read_flow;        // 表测度数流量值
-    FLOAT *actual_flow;        // 实际流量值
-    FLOAT correction_factor;  // 修正系数K
-} CalibrationPoint_t;
 
 // 校准系统结构
 typedef struct {
-    // 三个校准点
-    CalibrationPoint_t zero_point;      // 零点
-    CalibrationPoint_t small_flow_point; // 小流量点
-    CalibrationPoint_t large_flow_point; // 大流量点
+    LONG small_flow_point;// 小流量点的实际ADC值
+    LONG large_flow_point;// 大流量点的实际ADC值
     
+    FLOAT *small_actual_flow;        // 表测流量点的流量值
+    FLOAT *small_meter_flow;        // 表测流量点的流量值
     // 中间计算参数
-    LONG *zero_offset;        // 修正零点原始滤波值orzero
+    LONG *zero_point;        // 修正零点原始滤波值orzero
     FLOAT *k_small;            // 小流量点K
     FLOAT *k_large;            // 大流量点K
     
-    // 校准状态
-   // bool is_calibrated;      // 是否已校准
-  //  bool calibration_mode;   // 校准模式: false=正常模式, true=标定模式
+    FLOAT *k_convert;            // 转换器系数
+    
+  //  FLOAT cal_k_small; //通过流量校正的K系数
+ //   FLOAT cal_k_large; //通过流量校正的K系数
 } CalibrationSystem_t;
+
+
 
 // 全局校准系统实例
 static CalibrationSystem_t g_calibration_sys;// = {0};
-
-//K系数表
-static const float k_init_value=0.0000152;
 // ==================== 校准点设置函数 ====================
+
+
+//设置默认的校正参数
+void  calibration_init_default_params(EMDCB_Params_t* params)
+{
+//小流量点实际流量值
+    params->small_flow_meter  =0.1;
+    params->small_flow_actual =0.1;
+    //大流量点实际流量值
+    params->large_flow_meter = 10.0;
+    params->large_flow_actual= 10.0;
+    //零点的仪表测量值
+    params->zero_point_meter= 0.01;
+    //转换系数
+    params->converter_factor = 1.0;
+    
+    params->Internal_zero_point = 300000; //流量计的零点，adc的滤波值
+    params->Internal_K_small = 0.000012; //小流量的K系数
+    params->Internal_K_large = 0.000012; //大流量的K系数
+}
 
 
     
 //计算通过大流量点小流量点和零点值，计算K系数和零点值的ADC值
 void Init_Calibration_Param(EMDCB_Params_t* params)
 {
-      //小流量的实际流量值
-      g_calibration_sys.small_flow_point.read_flow = &params->small_flow_meter;
-      g_calibration_sys.small_flow_point.actual_flow = &params->small_flow_actual;
       
-      //大流量点实际流量值
-      g_calibration_sys.large_flow_point.read_flow = &params->large_flow_meter;
-      g_calibration_sys.large_flow_point.actual_flow = &params->small_flow_actual;
-      
-      //零点的仪表测量值
-      g_calibration_sys.zero_point.read_flow = &params->zero_point_meter;
-      
-      
-      g_calibration_sys.zero_offset = &params->Internal_zero_point; //流量计的零点，adc的滤波值
-      g_calibration_sys.k_small = &params->Internal_K_small; //小流量的K系数
-      g_calibration_sys.k_large = &params->Internal_K_large; //大流量的K系数 
+    g_calibration_sys.zero_point = &params->Internal_zero_point; //流量计的零点，adc的滤波值
+    g_calibration_sys.k_small = &params->Internal_K_small; //小流量的K系数
+    g_calibration_sys.k_large = &params->Internal_K_large; //大流量的K系数 
+    g_calibration_sys.small_actual_flow = &params->small_flow_actual;//小流量的实际值
+    g_calibration_sys.small_meter_flow = &params->small_flow_meter;//小流量的实际值
+    g_calibration_sys.k_convert =  &params->converter_factor;//转换系数
     
-      //重新计算零点和K值
-      //Reset_Zero_Point();
-      //Reset_Small_K();
-      //Reset_Large_K();
+    //通过K系数和0点采样值，计算出小流量采样值和大流量采样值，用于分段比较
+    g_calibration_sys.small_flow_point = params->Internal_zero_point +(LONG) (params->small_flow_meter/params->Internal_K_small);
+    g_calibration_sys.large_flow_point = params->Internal_zero_point + (LONG)(params->large_flow_meter/params->Internal_K_large);
+    
+      
+    //计算大流量点K 校准
+  /*  FLOAT meter_diff = params->large_flow_meter - params->small_flow_meter;
+    FLOAT flow_diff = params->large_flow_actual - params->small_flow_actual;
+    
+    g_calibration_sys.cal_k_large = flow_diff/meter_diff;
+    
+    // 计算小流量点K 校准
+    g_calibration_sys.cal_k_small = =  (params->small_flow_actual) / (small_flow_meter);*/
+
 }
 
 
-void Reset_Small_K(void)
-{
-    FLOAT *k_small = g_calibration_sys.k_small;
-    
-      //1.重新调整小流量K系数
-    *k_small = *k_small * (*g_calibration_sys.small_flow_point.actual_flow) / (*g_calibration_sys.small_flow_point.read_flow);
-    //2.计算小流量的采样值是多少
-    g_calibration_sys.small_flow_point.filter_value = (*g_calibration_sys.zero_offset) + \
-                                                      (*g_calibration_sys.small_flow_point.read_flow) / (*k_small);//
-}
 
-void Reset_Large_K(void)
-{
-    FLOAT *k_large = g_calibration_sys.k_large;
-    
-          // 2. 计算大流量点K
-    FLOAT meter_diff = g_calibration_sys.large_flow_point.read_flow - 
-                      g_calibration_sys.small_flow_point.read_flow;
-    FLOAT flow_diff = g_calibration_sys.large_flow_point.actual_flow - 
-                     g_calibration_sys.small_flow_point.actual_flow;
-    
-    *k_large = (*k_large) *  flow_diff / meter_diff;
-}
-
-//校正零点
-void Reset_Zero_Point(void)
-{
-    LONG *zero_offset = g_calibration_sys.zero_offset;
-    
-    // 3. 计算修正零点原始滤波值orzero
-    // 公式: 修正零点原始滤波值orzero = 零点的仪表测量值 / 小流量点K + 零点的的原始滤波值orzero
-    *zero_offset = (LONG)(*g_calibration_sys.zero_point.read_flow / 
-                                   *g_calibration_sys.k_small) + 
-                                   *g_calibration_sys.zero_offset;    
-}
 
 /**
  * @brief  设置零点校准数据
@@ -112,11 +89,11 @@ void Reset_Zero_Point(void)
 bool Calibration_SetZeroPoint(FLOAT read_flow) 
 {
 
-    *g_calibration_sys.zero_point.read_flow = read_flow;
-    //g_calibration_sys.zero_point.actual_flow = 0.0f;  // 零点实际流量为0
+    LONG *zero_offset = g_calibration_sys.zero_point;
     
-    //校正零点
-    Reset_Zero_Point();
+    // 3. 计算修正零点原始滤波值orzero
+    // 公式: 修正零点原始滤波值orzero = 零点的仪表测量值 / 小流量点K + 零点的的原始滤波值orzero
+    *zero_offset += read_flow / *g_calibration_sys.k_small;
     
     
     return true;
@@ -131,12 +108,16 @@ bool Calibration_SetZeroPoint(FLOAT read_flow)
  */
 bool Calibration_SetSmallFlowPoint(FLOAT read_flow, FLOAT actual_flow) 
 {
-
-    *g_calibration_sys.small_flow_point.read_flow   = read_flow;
-    *g_calibration_sys.small_flow_point.actual_flow = actual_flow;
-    
+   
     //校正小流量
-    Reset_Small_K();
+    FLOAT *k_small = g_calibration_sys.k_small;
+    
+      //1.重新调整小流量K系数
+    *k_small = *k_small * (actual_flow  ) / (read_flow);
+    
+    //通过K系数和0点采样值，计算出小流量采样值和大流量采样值，用于分段比较
+    g_calibration_sys.small_flow_point = *g_calibration_sys.zero_point + (LONG)(read_flow/(*k_small));
+    
     
     return true;
 }
@@ -148,15 +129,18 @@ bool Calibration_SetSmallFlowPoint(FLOAT read_flow, FLOAT actual_flow)
  * @param  actual_flow: 大流量点实际流量值
  * @retval 设置是否成功
  */
-bool Calibration_SetLargeFlowPoint(FLOAT read_flow, FLOAT actual_flow)
+bool Calibration_SetLargeFlowPoint(FLOAT small_read_flow, FLOAT small_actual_flow,FLOAT large_read_flow, FLOAT large_actual_flow)
 {
 
-    *g_calibration_sys.large_flow_point.read_flow = read_flow;
-    *g_calibration_sys.large_flow_point.actual_flow = actual_flow;
-       
-    //校正大流量
-    Reset_Large_K();
     
+    FLOAT *k_large = g_calibration_sys.k_large;
+    
+    // 2. 计算大流量点K
+    FLOAT meter_diff = large_read_flow - small_read_flow;
+    
+    FLOAT flow_diff = large_actual_flow - small_actual_flow;
+    
+    *k_large = (*k_large) *  flow_diff / meter_diff;
     
     return true;
 }
@@ -176,9 +160,9 @@ FLOAT Calibration_ApplyCorrection(LONG raw_filter_value)
     FLOAT corrected_flow = 0.0f;
     
     // 仪表测量值 = 原始的滤波值orlv - 修正零点原始滤波值orzero
-    LONG meter_value = raw_filter_value - (*g_calibration_sys.zero_offset);
+    LONG meter_value = raw_filter_value - (*g_calibration_sys.zero_point);
     
-    if (raw_filter_value <= g_calibration_sys.small_flow_point.filter_value) 
+    if (raw_filter_value <= g_calibration_sys.small_flow_point) 
     {
         // 小流量段: 修正流量 = 仪表测量值 × 小流量点K
         corrected_flow = meter_value * (*g_calibration_sys.k_small);
@@ -186,14 +170,12 @@ FLOAT Calibration_ApplyCorrection(LONG raw_filter_value)
     else 
     {
         // 大流量段: 修正流量 = 小流量的实际流量值 + (大流量点的原始的滤波值orlv-小流量点的原始的滤波值orlv) * 大流量点K
-        // 注意: 这里应该是当前的原始滤波值与小流量点的原始滤波值之差乘以大流量点K
-        FLOAT small_meter_value = g_calibration_sys.small_flow_point.filter_value - 
-                                 *g_calibration_sys.zero_offset;
-        
-        corrected_flow = *g_calibration_sys.small_flow_point.actual_flow + 
-                        (meter_value - small_meter_value) * g_calibration_sys.k_large;
+        // 注意: 这里应该是当前的原始滤波值与小流量点的原始滤波值之差乘以大流量点K        
+        corrected_flow = *g_calibration_sys.small_actual_flow;
+        corrected_flow += (raw_filter_value - g_calibration_sys.small_flow_point) * (*g_calibration_sys.k_large);
     }
-    
+    //转换器系数
+    corrected_flow *= *g_calibration_sys.k_convert;
     
     return corrected_flow;
 }

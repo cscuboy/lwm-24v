@@ -6,6 +6,7 @@
 #include "kalman.h"
 #include "Modbus_index.h"
 #include "Modbus_Param.h"
+#include "calibration.h"
 
 typedef struct 
 {
@@ -387,12 +388,9 @@ static void TreadCalcPrco(HighPrecisionFlowTotalizer* totalizer)
     {   
        /*理论sumvalue最大为4096*4000=16384000 ，flaot范围在-16777216 ~ 16777216*/
       
-      //const RegisterMap_t* zero_point = emdcb_get_register_by_index(REG_INDEX_ZERO_POINT_METER); 
-      float value ;
-      emdcb_get_float_by_index(REG_INDEX_ZERO_POINT_METER, &value); 
-      value = measure_param.zero_point;
-      int32_t value_des_zero = sumvalue - value;//600000;//去0点的值
-      float value_ssll = value_des_zero * measure_param.ka ;  //得到m3/h
+      //计算，从采样值-》瞬时流量
+
+      float value_ssll = Calibration_ApplyCorrection(sumvalue);
       
       //滤波算法
         if(1 == first_cal)
@@ -432,6 +430,7 @@ static void TreadCalcPrco(HighPrecisionFlowTotalizer* totalizer)
          
     emdcb_set_permission(PERM_LEVEL_03);
 
+    //1.计算累计
         //正向总量小数位
     float xs = totalizer->positive_milliliters / 1000000.0;
     
@@ -449,6 +448,7 @@ static void TreadCalcPrco(HighPrecisionFlowTotalizer* totalizer)
     //正向总量小数位
     emdcb_set_float_by_index(REG_INDEX_NEGATIVE_TOTAL_FRAC, xs);     
     
+    //2.计算流速
     
     
     

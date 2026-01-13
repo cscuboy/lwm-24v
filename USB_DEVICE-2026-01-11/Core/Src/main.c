@@ -64,7 +64,24 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static void Init_485_set()
+{
+  /**
+ * @brief  读取通信参数
+ * @param  addr: Modbus地址输出
+ * @param  baudrate: 波特率输出
+ * @param  data_bits: 数据位输出
+ * @param  stop_bits: 停止位输出
+ * @param  parity: 校验位输出
+ * @retval 无
+ */
+  SHORT addr,baudrate,data_bits,stop_bits,parity;
+  
+  emdcb_read_comm_params(&addr, &baudrate, &data_bits, &stop_bits, &parity);
 
+  UART_ReInit(&huart1, baudrate, data_bits, stop_bits, parity);
+
+}
 /* USER CODE END 0 */
 
 /**
@@ -110,6 +127,15 @@ int main(void)
   MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
   Power_Down_All_Modules(0);  
+  
+    //初始化参数
+   EMCDB_Flash_Init();
+   //初始化寄存器表
+   init_index_table();
+   
+
+   //设置485设置
+  Init_485_set();
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in cmsis_os2.c) */

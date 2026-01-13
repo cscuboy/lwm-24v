@@ -1,6 +1,7 @@
 #include "in_flash_bsp.h"
 #include "string.h"
 #include "stdio.h"
+#include "calibration.h"
 
 // 全局参数实例
 extern EMDCB_Params_t g_emdcb_params;
@@ -25,6 +26,7 @@ uint16_t EMCDB_Flash_CalculateCRC(uint8_t* data, uint32_t length) {
 }
 
 // 设置参数默认值
+/*
 void EMCDB_Flash_SetDefaults(EMDCB_Params_t* params) {
     if (params == NULL) return;
     
@@ -36,13 +38,27 @@ void EMCDB_Flash_SetDefaults(EMDCB_Params_t* params) {
     params->meter_caliber = 100;         // 100mm口径
     params->meter_range = 100.0f;        // 100 m3/h量程
     params->modbus_addr = 1;             // Modbus地址1
-    params->modbus_baudrate = 9600;      // 波特率9600
+    params->modbus_baudrate = 115200;      // 波特率9600
     params->flow_direction_set = 0;      // 正向流量
     params->flow_filter_set = 1;         // 滤波使能
     params->empty_pipe_alarm_en = 1;    // 空管报警使能
     params->measure_mode = 0;            // 周期测量模式
+    
+    //小流量点实际流量值
+    params->small_flow_meter  =0.1;
+    params->small_flow_actual =0.1;
+    //大流量点实际流量值
+    params->large_flow_meter = 10.0;
+    params->small_flow_actual= 10.0;
+    //零点的仪表测量值
+    params->zero_point_meter= 0.01;
+    
+    
+    LONG Internal_zero_point; //流量计的零点，adc的滤波值
+    FLOAT Internal_K_small; //小流量的K系数
+    FLOAT Internal_K_large; //大流量的K系数
 }
-
+*/
 // 擦除参数存储区域
 bool EMCDB_Flash_EraseParamArea(void) {
     FLASH_EraseInitTypeDef erase_init;
@@ -203,6 +219,8 @@ bool EMCDB_Flash_VerifyParameters(void) {
 // 初始化Flash参数系统
 bool EMCDB_Flash_Init(void)
 {
+  bool ret;
+  
     dprintf("=== EMDCB Flash参数系统初始化 ===\n");
     dprintf("参数存储地址: 0x%08lX\n", PARAM_STORE_ADDR);
     dprintf("参数存储大小: %lu页 (%lu字节)\n", 
@@ -212,20 +230,30 @@ bool EMCDB_Flash_Init(void)
     if (EMCDB_Flash_LoadParameters(&g_emdcb_params)) 
     {
         printf("参数加载成功\n");
-        return true;
-    } else 
+        ret =  true;
+    } 
+    else 
     {
         dprintf("参数加载失败，使用默认值\n");
-        EMCDB_Flash_SetDefaults(&g_emdcb_params);
         
+       // EMCDB_Flash_SetDefaults(&g_emdcb_params);
+        emdcb_init_default_params(&g_emdcb_params);
         // 保存默认值
         if (EMCDB_Flash_SaveParameters(&g_emdcb_params))
         {
             dprintf("默认参数保存成功\n");
-            return true;
+            ret =  true;
         } else {
             dprintf("默认参数保存失败\n");
-            return false;
+            ret = false;
         }
     }
+      
+        
+    //初始化校准系数
+    Init_Calibration_Param(&g_emdcb_params);
+    
+    return ret;
+
 }
+

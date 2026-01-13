@@ -207,6 +207,11 @@ typedef struct {
     LONG display_software_serial;    // 地址245: 显示板软件序列号
     SHORT reserved_247;              // 地址247: 预留
     
+    
+    // ==================== 程序内部使用参数，不公开与modbus.  反正这里方便统一管理参数 ====================
+    LONG Internal_zero_point; //流量计的零点，adc的滤波值
+    FLOAT Internal_K_small; //小流量的K系数
+    FLOAT Internal_K_large; //大流量的K系数
 } EMDCB_Params_t;
 
 // 全局参数实例声明
@@ -216,6 +221,10 @@ void emdcb_params_init(void);
 uint8_t emdcb_register_read(uint16_t addr, uint16_t *value);
 uint8_t emdcb_register_write(uint16_t addr, uint16_t value);
 
+void emdcb_init_default_params(EMDCB_Params_t* params) ;
+
+
+void  emdcb_ModbusSetting(uint16_t reg_addr, uint16_t reg_count);
 
 //static uint8_t check_permission(RegisterPermission required_perm) ;
 //void emdcb_set_permission(uint8_t perm) ;

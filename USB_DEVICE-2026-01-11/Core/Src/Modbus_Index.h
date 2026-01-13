@@ -266,7 +266,7 @@ uint16_t emdcb_get_addr_by_index(uint16_t index);
 const char* emdcb_get_desc_by_index(uint16_t index);
 
 // 初始化函数
-void emdcb_init_all_params(void);
+void emdcb_init_all_params();
 void init_index_table(void) ;
 
 //转换函数
@@ -274,6 +274,9 @@ uint16_t swap_uint16(uint16_t value) ;
 uint32_t swap_uint32(uint32_t value) ;
 float swap_float(float value) ;
 
+
+//设置485设置
+void init_485_device_set(void); 
 
 // 测试函数
 void emdcb_test_index_access(void);

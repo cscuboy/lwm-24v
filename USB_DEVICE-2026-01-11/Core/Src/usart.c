@@ -341,5 +341,41 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
 }
 
 /* USER CODE BEGIN 1 */
+/**
+  * @brief  重新初始化串口波特率等参数
+  * @param  huart: 串口句柄指针 (如 &huart1)
+  * @param  BaudRate: 目标波特率 (如 9600, 115200)
+  * @param  WordLength: 数据位 (如 UART_WORDLENGTH_8B)
+  * @param  StopBits: 停止位 (如 UART_STOPBITS_1)
+  * @param  Parity: 校验位 (如 UART_PARITY_NONE)
+  * @retval HAL状态
+  */
+HAL_StatusTypeDef UART_ReInit(UART_HandleTypeDef *huart, uint32_t BaudRate, uint32_t WordLength, uint32_t StopBits, uint32_t Parity)
+{
+    /* 1. 禁用串口 */
+    __HAL_UART_DISABLE(huart);
 
+    /* 2. 可选但推荐：清除可能残留的标志位 */
+    __HAL_UART_CLEAR_FLAG(huart, UART_FLAG_TC);   // 清除发送完成标志
+    __HAL_UART_CLEAR_FLAG(huart, UART_FLAG_RXNE); // 清除接收非空标志
+
+    /* 3. 更新句柄中的初始化参数 */
+    huart->Init.BaudRate = BaudRate;
+    huart->Init.WordLength = WordLength;
+    huart->Init.StopBits = StopBits;
+    huart->Init.Parity = Parity;
+    // 也可以修改其他参数，如硬件流控等
+
+    /* 4. 调用初始化函数，将新参数写入硬件寄存器 */
+    HAL_StatusTypeDef status = HAL_UART_Init(huart);
+    if (status != HAL_OK) {
+        // 初始化失败，错误处理（例如记录日志或恢复默认值）
+        return status;
+    }
+
+    /* 5. 重新使能串口 */
+    __HAL_UART_ENABLE(huart);
+
+    return HAL_OK;
+}
 /* USER CODE END 1 */

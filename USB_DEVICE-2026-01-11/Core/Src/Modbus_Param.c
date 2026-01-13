@@ -1,4 +1,6 @@
 #include "Modbus_Param.h"
+#include "calibration.h"
+#include "Modbus_Reg_Addr.h"
 
 #include <string.h>
 
@@ -40,26 +42,6 @@ static uint8_t current_permission = PERM_READ_ONLY;  // 当前权限等级
     return current_permission;
 }*/
 
-/**
- * @brief  初始化所有参数为默认值
- * @retval 无
- */
-/*void emdcb_init_all_params(void) 
-{
-    memset(&g_emdcb_params, 0, sizeof(g_emdcb_params));
-    
-    // 设置默认值
-    g_emdcb_params.flow_unit = 5;  // 默认单位: m3/h
-    g_emdcb_params.meter_caliber = 100;  // 默认口径: 100mm
-    g_emdcb_params.meter_range = 100.0f;  // 默认量程: 100 m3/h
-    g_emdcb_params.modbus_addr = 1;  // 默认地址: 1
-    g_emdcb_params.modbus_baudrate = 9600;  // 默认波特率: 9600
-    g_emdcb_params.modbus_data_bits = 8;  // 默认数据位: 8
-    g_emdcb_params.modbus_stop_bits = 1;  // 默认停止位: 1
-    g_emdcb_params.modbus_parity = 0;  // 默认校验: 无
-    g_emdcb_params.flow_filter_set = 1;  // 默认滤波: 启用
-    g_emdcb_params.measure_mode = 0;  // 默认测量模式: 周期测量
-}*/
 
 // ==================== 流量测量参数函数 ====================
 
@@ -610,6 +592,88 @@ uint8_t emdcb_set_calibration_params(FLOAT cal_4ma, FLOAT cal_20ma) {
     g_emdcb_params.calibrate_20ma = cal_20ma;
     
     return 0;
+}
+
+
+
+/**
+ * @brief  初始化所有参数为默认值
+ * @retval 无
+ */
+void emdcb_init_default_params(EMDCB_Params_t* params) 
+{
+  //  EMDCB_Params_t* params = &g_emdcb_params;
+    
+    memset(params, 0, sizeof(EMDCB_Params_t));
+    
+    // 设置默认值
+    params->flow_unit = 5;  // 默认单位: m3/h
+    params->meter_caliber = 100;  // 默认口径: 100mm
+    params->meter_range = 100.0f;  // 默认量程: 100 m3/h
+
+    //485通信
+    params->modbus_addr = 1;             // Modbus地址1
+    params->modbus_baudrate = 9600;//115200;      // 波特率9600
+    params->modbus_data_bits = 8;  // 默认数据位: 8
+    params->modbus_stop_bits = 1;  // 默认停止位: 1
+    params->modbus_parity = 0;  // 默认校验: 无
+
+
+    params->flow_filter_set = 1;  // 默认滤波: 启用
+    params->measure_mode = 0;  // 默认测量模式: 周期测量
+        
+    //设置合理的默认值
+    params->instant_flow = 0.0f;         //瞬时流量
+    params->flow_unit = 5;              // m3/h
+    params->meter_caliber = 100;         // 100mm口径
+    params->meter_range = 100.0f;        // 100 m3/h量程
+
+    
+    
+    params->flow_direction_set = 0;      // 正向流量
+    params->flow_filter_set = 1;         // 滤波使能
+    params->empty_pipe_alarm_en = 1;    // 空管报警使能
+    params->measure_mode = 0;            // 周期测量模式
+    
+    //设置默认的校准测量参数
+    calibration_init_default_params(params);
+
+}
+
+    FLOAT large_flow_actual;         // 地址49: 大流量点实际流量值
+    FLOAT large_flow_meter;          // 地址51: 大流量点仪表测量值
+    FLOAT small_flow_actual;         // 地址53: 小流量的实际流量值
+    FLOAT small_flow_meter;          // 地址55: 小流量点仪表测量值
+    FLOAT zero_point_meter;          // 地址57: 零点的仪表测量值
+
+//modbus设置完成后，让配置参数，让其生效
+void     emdcb_ModbusSetting(uint16_t reg_addr, uint16_t reg_count)
+{
+    int i;
+    for(i = reg_addr ; i < reg_addr + reg_count;i++ )
+    {
+        
+      switch (i)
+      { // 零点的仪表测量值
+        case REG_ADDR_ZERO_POINT_METER:
+          Calibration_SetZeroPoint(g_emdcb_params.zero_point_meter); 
+          break;
+          // 大流量点实际流量值
+        case REG_ADDR_LARGE_FLOW_ACTUAL:
+          // 大流量点仪表测量值
+        case REG_ADDR_LARGE_FLOW_METER:
+          Calibration_SetLargeFlowPoint(g_emdcb_params.small_flow_meter,g_emdcb_params.small_flow_actual,\
+                                     g_emdcb_params.large_flow_meter, g_emdcb_params.large_flow_actual);
+          break;
+          // 小流量的实际流量值
+        case REG_ADDR_SMALL_FLOW_ACTUAL:    
+          // 小流量点仪表测量值
+        case REG_ADDR_SMALL_FLOW_METER:
+          Calibration_SetSmallFlowPoint(g_emdcb_params.small_flow_meter, g_emdcb_params.small_flow_actual); 
+          break;                    
+      }
+
+    }
 }
 
 // ==================== 测试用例函数 ====================

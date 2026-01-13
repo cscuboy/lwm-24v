@@ -117,3 +117,4 @@ void Start_RS485_DMA_Reception(void)
     RS485_SET_RX(); // 确保处于接收模式
     HAL_UART_Receive_DMA(&huart1, RS485_Rx_Buffer, sizeof(RS485_Rx_Buffer));
 }
+

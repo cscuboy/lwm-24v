@@ -48,6 +48,8 @@ void MX_USART3_UART_Init(void);
 
 /* USER CODE BEGIN Prototypes */
 
+HAL_StatusTypeDef UART_ReInit(UART_HandleTypeDef *huart, uint32_t BaudRate, uint32_t WordLength, uint32_t StopBits, uint32_t Parity);
+
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus

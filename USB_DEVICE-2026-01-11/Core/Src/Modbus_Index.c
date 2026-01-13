@@ -1,7 +1,9 @@
-#include "Modbus_index.h"
-#include "Modbus_Param.h"
+
 #include <string.h>
 #include <stdio.h>
+#include "Modbus_index.h"
+#include "Modbus_Param.h"
+#include "calibration.h"
 
 extern EMDCB_Params_t g_emdcb_params;
 
@@ -796,29 +798,9 @@ uint16_t emdcb_batch_set_by_indices(uint16_t* indices, uint16_t count, FLOAT* va
 
 // ==================== 初始化函数 ====================
 
-/**
- * @brief  初始化所有参数为默认值
- * @retval 无
- */
-void emdcb_init_all_params(void) 
-{
-    memset(&g_emdcb_params, 0, sizeof(g_emdcb_params));
-    
-    // 设置默认值
-    g_emdcb_params.flow_unit = 5;  // 默认单位: m3/h
-    g_emdcb_params.meter_caliber = 100;  // 默认口径: 100mm
-    g_emdcb_params.meter_range = 100.0f;  // 默认量程: 100 m3/h
-    g_emdcb_params.modbus_addr = 1;  // 默认地址: 1
-    g_emdcb_params.modbus_baudrate = 9600;  // 默认波特率: 9600
-    g_emdcb_params.modbus_data_bits = 8;  // 默认数据位: 8
-    g_emdcb_params.modbus_stop_bits = 1;  // 默认停止位: 1
-    g_emdcb_params.modbus_parity = 0;  // 默认校验: 无
-    g_emdcb_params.flow_filter_set = 1;  // 默认滤波: 启用
-    g_emdcb_params.measure_mode = 0;  // 默认测量模式: 周期测量
-    
-    // 初始化快速查找表
-    //init_index_table();
-}
+
+
+
 
 // ==================== 测试函数 ====================
 

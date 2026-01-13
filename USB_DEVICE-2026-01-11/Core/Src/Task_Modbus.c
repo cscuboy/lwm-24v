@@ -8,6 +8,7 @@
 #include <string.h>
 #include "Modbus_Param.h"
 #include "Modbus_index.h"
+#include "Modbus_Reg_Addr.h"
 #include "usart_bsp.h"
 
 #include "in_flash_bsp.h"
@@ -372,8 +373,10 @@ static int process_read_holding_registers(uint8_t* frame, uint16_t len,
 
 // 处理06功能码 - 写单个寄存器
 static int process_write_single_register(uint8_t* frame, uint16_t len,
-                                        uint8_t* sendbuff, uint16_t* sendlen) {
-    if (len < 8) {  // 地址(1) + 功能码(1) + 寄存器地址(2) + 寄存器值(2) + CRC(2)
+                                        uint8_t* sendbuff, uint16_t* sendlen) 
+{
+    if (len < 8) 
+    {  // 地址(1) + 功能码(1) + 寄存器地址(2) + 寄存器值(2) + CRC(2)
         return 0;
     }
     
@@ -383,7 +386,8 @@ static int process_write_single_register(uint8_t* frame, uint16_t len,
     
     // 检查寄存器是否存在
     const RegisterMap_t* reg = find_register_by_addr(reg_addr);
-    if (reg == NULL) {
+    if (reg == NULL) 
+    {
         // 寄存器不存在
         sendbuff[0] = frame[0];
         sendbuff[1] = 0x86;  // 异常功能码 (0x80 + 0x06)
@@ -393,7 +397,8 @@ static int process_write_single_register(uint8_t* frame, uint16_t len,
     }
     
     // 写入寄存器
-    if (!write_single_register(reg_addr, reg_value)) {
+    if (!write_single_register(reg_addr, reg_value)) 
+    {
         // 写入失败
         sendbuff[0] = frame[0];
         sendbuff[1] = 0x86;
@@ -420,7 +425,9 @@ static int process_write_single_register(uint8_t* frame, uint16_t len,
 static int process_write_multiple_registers(uint8_t* frame, uint16_t len,
                                            uint8_t* sendbuff, uint16_t* sendlen) 
 {
-    if (len < 9) {  // 最小长度检查
+    uint16_t reg_addr;
+    if (len < 9) 
+    {  // 最小长度检查
         return 0;
     }
     
@@ -450,7 +457,7 @@ static int process_write_multiple_registers(uint8_t* frame, uint16_t len,
     // 检查所有寄存器是否存在并验证权限
     for (uint16_t i = 0; i < reg_count; i++) 
     {
-        uint16_t reg_addr = start_addr + i;
+        reg_addr = start_addr + i;
         const RegisterMap_t* reg = find_register_by_addr(reg_addr);
         
         if (reg == NULL) {
@@ -477,7 +484,7 @@ static int process_write_multiple_registers(uint8_t* frame, uint16_t len,
     // 写入所有寄存器
     for (uint16_t i = 0; i < reg_count; i++) 
     {
-        uint16_t reg_addr = start_addr + i;
+        reg_addr = start_addr + i;
         uint16_t reg_value = (frame[7 + i * 2] << 8  |  frame[8 + i * 2]);
         
         if (!write_single_register(reg_addr, reg_value)) 
@@ -489,13 +496,12 @@ static int process_write_multiple_registers(uint8_t* frame, uint16_t len,
             *sendlen = 3;
             return 1;
         }
+        
     }
-    
-    // 构建成功响应
-   /* if (*sendlen < 8) 
-    {
-        return 0;
-    }*/
+    //modbus设置完成后，让配置参数，让其生效
+    emdcb_ModbusSetting(start_addr,reg_count);
+
+
     
     // 响应格式：地址 + 功能码 + 起始地址 + 寄存器数量
     sendbuff[0] = frame[0];  // 从机地址
@@ -582,6 +588,10 @@ int  modbus_process_frame(uint8_t* frame, uint16_t len, uint8_t* sendbuff, uint1
     }
     return ret;
 }
+
+
+
+
 
 // 测试代码
 #ifdef MODBUS_HANDLER_TEST
@@ -788,10 +798,9 @@ void Rs485Rx_Isr_handle(uint8_t* padata ,uint16_t len)
 void Modbus_Task_Proc(void const * argument)
 {
   int ret = 0;
-  //init_index_table();
-  //初始化参数
-   EMCDB_Flash_Init();
-   init_index_table();
+
+       
+   //开启485接收模式
    Start_RS485_DMA_Reception(); 
 
   for(;;)

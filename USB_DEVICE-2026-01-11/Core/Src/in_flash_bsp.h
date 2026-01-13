@@ -43,7 +43,7 @@ bool EMCDB_Flash_Init(void);
 bool EMCDB_Flash_SaveParameters(EMDCB_Params_t* params);
 bool EMCDB_Flash_LoadParameters(EMDCB_Params_t* params);
 bool EMCDB_Flash_EraseParamArea(void);
-void EMCDB_Flash_SetDefaults(EMDCB_Params_t* params);
+//void EMCDB_Flash_SetDefaults(EMDCB_Params_t* params);
 uint16_t EMCDB_Flash_CalculateCRC(uint8_t* data, uint32_t length);
 bool EMCDB_Flash_VerifyParameters(void);
 
